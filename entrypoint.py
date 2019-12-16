@@ -4,20 +4,35 @@ import json
 import os
 import re
 import tempfile
+import subprocess
 
 from git import Repo
 
 GOLLUM_TITLE_REGEXP = re.compile(r"Release v([0-9.]+)")
 
 
+def new_release(repo, current, version):
+    print("Repo: ", repo)
+    print("Current: ", current)
+    print("New: ", version)
+
+
+def patch_release(repo, current, version):
+    print("Repo: ", repo)
+    print("Current: ", current)
+    print("New: ", version)
+
+
 def handle_gollum(payload):
     pages = payload["pages"][0]
+
     version = GOLLUM_TITLE_REGEXP.findall(pages["title"])
     if not version:
         return
-
     version = version[0]
-    action = pages["action"]
+    if version.count('.') == 1:
+        version = version + '.0'
+
     with tempfile.TemporaryDirectory() as path:
         wiki_msg = (
             Repo.clone_from(payload["repository"]["html_url"] + ".wiki.git", path)
@@ -25,9 +40,13 @@ def handle_gollum(payload):
             .message
         )
 
-    print(version, action, wiki_msg)
     repo = Repo()
-    print("Repo: ", repo)
+    current = subprocess.check_output(["poetry", "version"], text=True).split()[-1]
+
+    if "NEW_RELEASE" in wiki_msg:
+        new_release(repo, current, version)
+    elif "PATCH_RELEASE" in wiki_msg:
+        patch_release(repo, current, version)
 
 
 def main():
